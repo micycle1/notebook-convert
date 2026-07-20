@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Notebook → Python Converter</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #1a1d24;
+    --panel-2: #22262f;
+    --border: #2e333d;
+    --text: #e6e8eb;
+    --muted: #9aa1ad;
+    --accent: #4f8cff;
+    --accent-hover: #6b9dff;
+    --ok: #35c76a;
+    --danger: #ff5f56;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #f4f6fa;
+      --panel: #ffffff;
+      --panel-2: #f0f2f6;
+      --border: #dde1e8;
+      --text: #1a1d24;
+      --muted: #5c6470;
+      --accent: #2f6fed;
+      --accent-hover: #1f5fdd;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    padding: 2rem 1rem;
+  }
+  .wrap { max-width: 780px; margin: 0 auto; }
+  h1 { font-size: 1.6rem; margin: 0 0 .25rem; }
+  .sub { color: var(--muted); margin: 0 0 1.75rem; }
+  .drop {
+    border: 2px dashed var(--border);
+    border-radius: 14px;
+    background: var(--panel);
+    padding: 2.5rem 1.5rem;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+  }
+  .drop:hover, .drop.drag {
+    border-color: var(--accent);
+    background: var(--panel-2);
+  }
+  .drop .icon { font-size: 2.4rem; }
+  .drop .big { font-weight: 600; margin-top: .5rem; }
+  .drop .small { color: var(--muted); font-size: .9rem; margin-top: .25rem; }
+  input[type=file] { display: none; }
+  .opts {
+    display: flex; flex-wrap: wrap; gap: 1.25rem;
+    margin: 1.25rem 0 .5rem; color: var(--muted); font-size: .92rem;
+  }
+  .opts label { display: flex; align-items: center; gap: .45rem; cursor: pointer; }
+  .toolbar { display: flex; gap: .6rem; margin: 1.25rem 0; flex-wrap: wrap; }
+  button {
+    font: inherit; font-weight: 600; border: none; border-radius: 9px;
+    padding: .6rem 1.1rem; cursor: pointer; transition: background .15s, opacity .15s;
+  }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+  .btn-ghost { background: var(--panel-2); color: var(--text); border: 1px solid var(--border); }
+  .btn-ghost:hover:not(:disabled) { border-color: var(--accent); }
+  .file {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 11px; margin-bottom: .85rem; overflow: hidden;
+  }
+  .file-head {
+    display: flex; align-items: center; gap: .75rem;
+    padding: .75rem 1rem; background: var(--panel-2);
+  }
+  .file-name { font-weight: 600; word-break: break-all; flex: 1; }
+  .file-meta { color: var(--muted); font-size: .82rem; white-space: nowrap; }
+  .file-err { color: var(--danger); font-size: .85rem; padding: .25rem 1rem .75rem; }
+  pre {
+    margin: 0; padding: 1rem; max-height: 320px; overflow: auto;
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: .82rem; white-space: pre; background: var(--panel);
+  }
+  .file-actions { padding: .6rem 1rem; border-top: 1px solid var(--border); }
+  .file-actions button { padding: .4rem .8rem; font-size: .85rem; }
+  footer { color: var(--muted); font-size: .82rem; margin-top: 2rem; text-align: center; }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Notebook → Python Converter</h1>
+  <p class="sub">Drop <code>.ipynb</code> files below to extract their Python source. Everything runs in your browser — nothing is uploaded.</p>
+
+  <label class="drop" id="drop">
+    <div class="icon">📓</div>
+    <div class="big">Click to choose files, or drag &amp; drop</div>
+    <div class="small">You can select multiple <code>.ipynb</code> files at once</div>
+    <input type="file" id="fileInput" accept=".ipynb,application/x-ipynb+json" multiple>
+  </label>
+
+  <div class="opts">
+    <label><input type="checkbox" id="optMarkdown"> Include markdown as comments</label>
+    <label><input type="checkbox" id="optCellNums" checked> Add cell separators</label>
+    <label><input type="checkbox" id="optMagics"> Keep IPython magics (<code>%</code>, <code>!</code>)</label>
+  </div>
+
+  <div class="toolbar">
+    <button class="btn-primary" id="copyAll" disabled>Copy all for LLM</button>
+    <button class="btn-ghost" id="downloadAll" disabled>Download all (.py)</button>
+    <button class="btn-ghost" id="clearAll" disabled>Clear</button>
+  </div>
+
+  <div id="results"></div>
+</div>
+
+<footer>Runs entirely client-side · safe to host on GitHub Pages</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  const fileInput = document.getElementById("fileInput");
+  const drop = document.getElementById("drop");
+  const results = document.getElementById("results");
+  const downloadAllBtn = document.getElementById("downloadAll");
+  const copyAllBtn = document.getElementById("copyAll");
+  const clearAllBtn = document.getElementById("clearAll");
+  const optMarkdown = document.getElementById("optMarkdown");
+  const optCellNums = document.getElementById("optCellNums");
+  const optMagics = document.getElementById("optMagics");
+
+  // Keeps parsed notebooks so we can re-render when options change.
+  let items = []; // { name, pyName, notebook (or null), error }
+
+  function srcToText(source) {
+    if (Array.isArray(source)) return source.join("");
+    if (typeof source === "string") return source;
+    return "";
+  }
+
+  function commentMagics(text) {
+    // Comment out lines that start with a cell/line magic or shell escape.
+    return text.split("\n").map(function (line) {
+      const t = line.replace(/^\s+/, "");
+      if (t.startsWith("%") || t.startsWith("!") || t.startsWith("?")) {
+        return "# " + line;
+      }
+      return line;
+    }).join("\n");
+  }
+
+  function convert(notebook) {
+    const cells = (notebook && notebook.cells) || [];
+    const parts = [];
+    let codeIdx = 0;
+
+    cells.forEach(function (cell) {
+      if (cell.cell_type === "code") {
+        codeIdx++;
+        let code = srcToText(cell.source).replace(/\s+$/, "");
+        if (!optMagics.checked) code = commentMagics(code);
+        if (!code.trim()) return;
+        if (optCellNums.checked) parts.push("# %% [code] cell " + codeIdx);
+        parts.push(code);
+      } else if (cell.cell_type === "markdown" && optMarkdown.checked) {
+        const md = srcToText(cell.source).replace(/\s+$/, "");
+        if (!md.trim()) return;
+        const commented = md.split("\n").map(function (l) { return "# " + l; }).join("\n");
+        if (optCellNums.checked) parts.push("# %% [markdown]");
+        parts.push(commented);
+      }
+    });
+
+    return parts.join("\n\n") + "\n";
+  }
+
+  function pyFileName(name) {
+    return name.replace(/\.ipynb$/i, "").replace(/[^\w.\-]+/g, "_") + ".py";
+  }
+
+  function esc(s) {
+    return s.replace(/[&<>]/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c];
+    });
+  }
+
+  function download(filename, text) {
+    const blob = new Blob([text], { type: "text/x-python;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  }
+
+  function render() {
+    results.innerHTML = "";
+    let anyOk = false;
+
+    items.forEach(function (item, i) {
+      const wrap = document.createElement("div");
+      wrap.className = "file";
+
+      const head = document.createElement("div");
+      head.className = "file-head";
+
+      const nameEl = document.createElement("div");
+      nameEl.className = "file-name";
+      nameEl.textContent = item.name;
+      head.appendChild(nameEl);
+
+      if (item.error) {
+        const meta = document.createElement("div");
+        meta.className = "file-meta";
+        meta.style.color = "var(--danger)";
+        meta.textContent = "failed";
+        head.appendChild(meta);
+        wrap.appendChild(head);
+
+        const err = document.createElement("div");
+        err.className = "file-err";
+        err.textContent = item.error;
+        wrap.appendChild(err);
+      } else {
+        anyOk = true;
+        const py = convert(item.notebook);
+        item.py = py;
+        item.pyName = pyFileName(item.name);
+        const lines = py.split("\n").length;
+
+        const meta = document.createElement("div");
+        meta.className = "file-meta";
+        meta.textContent = lines + " lines → " + item.pyName;
+        head.appendChild(meta);
+        wrap.appendChild(head);
+
+        const pre = document.createElement("pre");
+        pre.textContent = py;
+        wrap.appendChild(pre);
+
+        const actions = document.createElement("div");
+        actions.className = "file-actions";
+        const dl = document.createElement("button");
+        dl.className = "btn-ghost";
+        dl.textContent = "Download " + item.pyName;
+        dl.addEventListener("click", function () { download(item.pyName, py); });
+        const copy = document.createElement("button");
+        copy.className = "btn-ghost";
+        copy.style.marginLeft = ".5rem";
+        copy.textContent = "Copy";
+        copy.addEventListener("click", function () {
+          navigator.clipboard.writeText(py).then(function () {
+            copy.textContent = "Copied ✓";
+            setTimeout(function () { copy.textContent = "Copy"; }, 1500);
+          });
+        });
+        actions.appendChild(dl);
+        actions.appendChild(copy);
+        wrap.appendChild(actions);
+      }
+
+      results.appendChild(wrap);
+    });
+
+    downloadAllBtn.disabled = !anyOk;
+    copyAllBtn.disabled = !anyOk;
+    clearAllBtn.disabled = items.length === 0;
+  }
+
+  function handleFiles(fileList) {
+    const files = Array.from(fileList).filter(function (f) {
+      return /\.ipynb$/i.test(f.name);
+    });
+    if (files.length === 0) return;
+
+    let pending = files.length;
+    files.forEach(function (file) {
+      const reader = new FileReader();
+      reader.onload = function () {
+        const item = { name: file.name };
+        try {
+          const nb = JSON.parse(reader.result);
+          if (!nb || !Array.isArray(nb.cells)) {
+            throw new Error("Not a valid notebook (no 'cells' array).");
+          }
+          item.notebook = nb;
+        } catch (e) {
+          item.error = "Could not parse: " + e.message;
+        }
+        items.push(item);
+        pending--;
+        if (pending === 0) render();
+      };
+      reader.onerror = function () {
+        items.push({ name: file.name, error: "Could not read file." });
+        pending--;
+        if (pending === 0) render();
+      };
+      reader.readAsText(file);
+    });
+  }
+
+  fileInput.addEventListener("change", function () {
+    handleFiles(fileInput.files);
+    fileInput.value = "";
+  });
+
+  ["dragenter", "dragover"].forEach(function (evt) {
+    drop.addEventListener(evt, function (e) {
+      e.preventDefault();
+      drop.classList.add("drag");
+    });
+  });
+  ["dragleave", "drop"].forEach(function (evt) {
+    drop.addEventListener(evt, function (e) {
+      e.preventDefault();
+      drop.classList.remove("drag");
+    });
+  });
+  drop.addEventListener("drop", function (e) {
+    if (e.dataTransfer && e.dataTransfer.files) handleFiles(e.dataTransfer.files);
+  });
+
+  downloadAllBtn.addEventListener("click", function () {
+    items.forEach(function (item, i) {
+      if (item.error) return;
+      // Stagger slightly so browsers don't drop concurrent downloads.
+      setTimeout(function () { download(item.pyName, item.py); }, i * 150);
+    });
+  });
+
+  copyAllBtn.addEventListener("click", function () {
+    const blocks = items
+      .filter(function (item) { return !item.error; })
+      .map(function (item) {
+        return "# ===== " + item.name + " =====\n\n" + item.py.replace(/\s+$/, "");
+      });
+    const combined = blocks.join("\n\n\n") + "\n";
+    navigator.clipboard.writeText(combined).then(function () {
+      const orig = copyAllBtn.textContent;
+      copyAllBtn.textContent = "Copied " + blocks.length + " file" + (blocks.length === 1 ? "" : "s") + " ✓";
+      setTimeout(function () { copyAllBtn.textContent = orig; }, 1800);
+    });
+  });
+
+  clearAllBtn.addEventListener("click", function () {
+    items = [];
+    render();
+  });
+
+  [optMarkdown, optCellNums, optMagics].forEach(function (el) {
+    el.addEventListener("change", render);
+  });
+})();
+</script>
+</body>
+</html>
