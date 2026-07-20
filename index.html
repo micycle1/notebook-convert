@@ -4,102 +4,201 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Notebook → Python Converter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poiret+One&family=Limelight&family=Cinzel:wght@500;600&display=swap" rel="stylesheet">
 <style>
+  /* ── Decoplex: 1990s multiplex Art-Deco revival ─────────────────────
+     midnight jewel-tone ground · gold hairlines · sunburst · chevrons  */
   :root {
-    --bg: #0f1115;
-    --panel: #1a1d24;
-    --panel-2: #22262f;
-    --border: #2e333d;
-    --text: #e6e8eb;
-    --muted: #9aa1ad;
-    --accent: #4f8cff;
-    --accent-hover: #6b9dff;
-    --ok: #35c76a;
-    --danger: #ff5f56;
-  }
-  @media (prefers-color-scheme: light) {
-    :root {
-      --bg: #f4f6fa;
-      --panel: #ffffff;
-      --panel-2: #f0f2f6;
-      --border: #dde1e8;
-      --text: #1a1d24;
-      --muted: #5c6470;
-      --accent: #2f6fed;
-      --accent-hover: #1f5fdd;
-    }
+    --ink:      #0a0f1f;   /* deep midnight */
+    --ink-2:    #111a33;
+    --panel:    #14203f;   /* jewel navy */
+    --panel-2:  #1b2b52;
+    --gold:     #e8c169;   /* brass / marquee gold */
+    --gold-hi:  #f6de9a;
+    --teal:     #37b7b0;   /* neon teal */
+    --magenta:  #e0508a;   /* neon magenta */
+    --text:     #f3ecdb;   /* warm ivory */
+    --muted:    #9fa9c4;
+    --danger:   #ff6f6f;
+    --line:     rgba(232,193,105,.35);
+    --line-soft:rgba(232,193,105,.16);
   }
   * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
   body {
     margin: 0;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    background: var(--bg);
+    font-family: "Poiret One", "Century Gothic", "Futura", sans-serif;
+    background:
+      radial-gradient(120% 80% at 50% -10%, rgba(224,80,138,.10), transparent 55%),
+      radial-gradient(120% 90% at 50% 0%, rgba(55,183,176,.10), transparent 50%),
+      linear-gradient(180deg, var(--ink-2), var(--ink) 60%);
     color: var(--text);
-    line-height: 1.5;
-    padding: 2rem 1rem;
+    line-height: 1.55;
+    padding: 2rem 1rem 3rem;
+    min-height: 100vh;
   }
-  .wrap { max-width: 780px; margin: 0 auto; }
-  h1 { font-size: 1.6rem; margin: 0 0 .25rem; }
-  .sub { color: var(--muted); margin: 0 0 1.75rem; }
+  /* Sunburst rays radiating from the top-center — the marquee halo */
+  body::before {
+    content: "";
+    position: fixed; inset: -30% 0 auto 0; height: 70vh; z-index: 0;
+    background: repeating-conic-gradient(from 90deg at 50% 0%,
+      rgba(232,193,105,.06) 0deg 3deg, transparent 3deg 9deg);
+    -webkit-mask-image: radial-gradient(80% 100% at 50% 0%, #000 0%, transparent 70%);
+            mask-image: radial-gradient(80% 100% at 50% 0%, #000 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .wrap { max-width: 800px; margin: 0 auto; position: relative; z-index: 1; }
+
+  /* ── Header / marquee ── */
+  header { text-align: center; margin-bottom: 2rem; }
+  .sunburst {
+    width: 48px; height: 48px; margin: 0 auto .5rem;
+    background: radial-gradient(circle at 50% 50%, var(--gold-hi) 0 14%, transparent 15%), var(--gold);
+    -webkit-mask: repeating-conic-gradient(from 0deg, #000 0 9deg, transparent 9deg 18deg);
+            mask: repeating-conic-gradient(from 0deg, #000 0 9deg, transparent 9deg 18deg);
+    filter: drop-shadow(0 0 10px rgba(232,193,105,.4));
+  }
+  h1 {
+    font-family: "Limelight", "Cinzel", serif;
+    font-weight: 400;
+    font-size: clamp(1.5rem, 5.5vw, 2.5rem);
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    margin: .1rem 0 .6rem;
+    color: var(--gold-hi);
+    text-shadow: 0 1px 0 rgba(0,0,0,.5), 0 0 22px rgba(232,193,105,.25);
+  }
+  .rule {
+    display: flex; align-items: center; justify-content: center; gap: .6rem;
+    margin: 0 auto .7rem; max-width: 360px; color: var(--gold);
+  }
+  .rule::before, .rule::after {
+    content: ""; flex: 1; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--gold));
+  }
+  .rule::after { background: linear-gradient(90deg, var(--gold), transparent); }
+  .rule .diamond { width: 8px; height: 8px; background: var(--gold); transform: rotate(45deg); }
+  .sub {
+    color: var(--muted); margin: 0; font-size: 1rem; letter-spacing: .04em;
+  }
+  code {
+    font-family: ui-monospace, "Consolas", monospace;
+    color: var(--teal); font-size: .92em;
+  }
+
+  /* ── Drop zone: framed marquee panel with stepped corners ── */
   .drop {
-    display: block;
-    border: 2px dashed var(--border);
-    border-radius: 14px;
-    background: var(--panel);
-    padding: 2.5rem 1.5rem;
-    text-align: center;
-    cursor: pointer;
-    transition: border-color .15s, background .15s;
+    display: block; position: relative;
+    border: 1px solid var(--line);
+    outline: 1px solid var(--line-soft); outline-offset: 5px;
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.03), transparent 40%),
+      var(--panel);
+    padding: 2.75rem 1.5rem;
+    text-align: center; cursor: pointer;
+    transition: border-color .15s, background .15s, box-shadow .15s;
   }
   .drop:hover, .drop.drag {
-    border-color: var(--accent);
+    border-color: var(--gold);
     background: var(--panel-2);
+    box-shadow: 0 0 0 1px var(--gold-hi) inset, 0 0 30px rgba(232,193,105,.12);
   }
-  .drop .icon { font-size: 2.4rem; }
-  .drop .big { font-weight: 600; margin-top: .5rem; }
-  .drop .small { color: var(--muted); font-size: .9rem; margin-top: .25rem; }
+  /* gold stepped-ziggurat corner ticks */
+  .drop::before, .drop::after {
+    content: ""; position: absolute; width: 18px; height: 18px; pointer-events: none;
+  }
+  .drop::before { top: -1px; left: -1px; border-top: 2px solid var(--gold); border-left: 2px solid var(--gold); }
+  .drop::after  { bottom: -1px; right: -1px; border-bottom: 2px solid var(--gold); border-right: 2px solid var(--gold); }
+  .drop .icon { font-size: 2.4rem; filter: drop-shadow(0 0 8px rgba(232,193,105,.35)); }
+  .drop .big {
+    font-family: "Cinzel", serif; font-weight: 600;
+    letter-spacing: .12em; text-transform: uppercase;
+    color: var(--gold-hi); margin-top: .6rem; font-size: 1.02rem;
+  }
+  .drop .small { color: var(--muted); font-size: .92rem; margin-top: .35rem; letter-spacing: .03em; }
   input[type=file] { display: none; }
+
+  /* ── Options ── */
   .opts {
-    display: flex; flex-wrap: wrap; gap: 1.25rem;
-    margin: 1.25rem 0 .5rem; color: var(--muted); font-size: .92rem;
+    display: flex; flex-wrap: wrap; gap: 1.1rem 1.5rem;
+    margin: 1.5rem 0 .5rem; color: var(--muted); font-size: .95rem;
+    letter-spacing: .03em;
   }
-  .opts label { display: flex; align-items: center; gap: .45rem; cursor: pointer; }
-  .toolbar { display: flex; gap: .6rem; margin: 1.25rem 0; flex-wrap: wrap; }
+  .opts label { display: flex; align-items: center; gap: .5rem; cursor: pointer; }
+  .opts input { accent-color: var(--teal); width: 16px; height: 16px; }
+
+  /* ── Buttons ── */
+  .toolbar { display: flex; gap: .7rem; margin: 1.4rem 0; flex-wrap: wrap; }
   button {
-    font: inherit; font-weight: 600; border: none; border-radius: 9px;
-    padding: .6rem 1.1rem; cursor: pointer; transition: background .15s, opacity .15s;
+    font-family: "Cinzel", serif; font-weight: 600; font-size: .82rem;
+    letter-spacing: .13em; text-transform: uppercase;
+    border: none; padding: .7rem 1.25rem; cursor: pointer;
+    transition: transform .12s, box-shadow .15s, filter .15s, opacity .15s, background .15s;
   }
-  button:disabled { opacity: .4; cursor: not-allowed; }
-  .btn-primary { background: var(--accent); color: #fff; }
-  .btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
-  .btn-ghost { background: var(--panel-2); color: var(--text); border: 1px solid var(--border); }
-  .btn-ghost:hover:not(:disabled) { border-color: var(--accent); }
+  button:disabled { opacity: .35; cursor: not-allowed; }
+  .btn-primary {
+    color: #1c1405;
+    background: linear-gradient(180deg, var(--gold-hi), var(--gold));
+    box-shadow: 0 0 0 1px rgba(255,255,255,.25) inset, 0 4px 14px rgba(232,193,105,.25);
+  }
+  .btn-primary:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.06); }
+  .btn-ghost {
+    background: transparent; color: var(--gold-hi);
+    border: 1px solid var(--line);
+  }
+  .btn-ghost:hover:not(:disabled) { border-color: var(--gold); background: rgba(232,193,105,.08); }
+
+  /* ── File cards ── */
   .file {
-    background: var(--panel); border: 1px solid var(--border);
-    border-radius: 11px; margin-bottom: .85rem; overflow: hidden;
+    background: var(--panel); border: 1px solid var(--line-soft);
+    margin-bottom: 1rem; overflow: hidden;
+    box-shadow: 0 6px 20px rgba(0,0,0,.35);
   }
   .file-head {
     display: flex; align-items: center; gap: .75rem;
-    padding: .75rem 1rem; background: var(--panel-2);
+    padding: .8rem 1rem; background: var(--panel-2);
+    border-bottom: 1px solid var(--line-soft);
+    /* chevron zigzag baseline */
+    border-image: none;
   }
-  .file-name { font-weight: 600; word-break: break-all; flex: 1; }
-  .file-meta { color: var(--muted); font-size: .82rem; white-space: nowrap; }
-  .file-err { color: var(--danger); font-size: .85rem; padding: .25rem 1rem .75rem; }
+  .file-name {
+    font-family: "Cinzel", serif; font-weight: 600; letter-spacing: .04em;
+    word-break: break-all; flex: 1; color: var(--gold-hi);
+  }
+  .file-meta { color: var(--muted); font-size: .82rem; white-space: nowrap; letter-spacing: .03em; }
+  .file-err { color: var(--danger); font-size: .85rem; padding: .35rem 1rem .8rem; }
   pre {
     margin: 0; padding: 1rem; max-height: 320px; overflow: auto;
-    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
-    font-size: .82rem; white-space: pre; background: var(--panel);
+    font-family: ui-monospace, "Consolas", "SF Mono", Menlo, monospace;
+    font-size: .82rem; line-height: 1.5; white-space: pre;
+    background: rgba(6,10,22,.6); color: var(--text);
   }
-  .file-actions { padding: .6rem 1rem; border-top: 1px solid var(--border); }
-  .file-actions button { padding: .4rem .8rem; font-size: .85rem; }
-  footer { color: var(--muted); font-size: .82rem; margin-top: 2rem; text-align: center; }
-  a { color: var(--accent); }
+  .file-actions { padding: .65rem 1rem; border-top: 1px solid var(--line-soft); }
+  .file-actions button { padding: .45rem .85rem; font-size: .72rem; }
+  .file-actions button + button { margin-left: .5rem; }
+
+  /* zigzag chevron divider */
+  .chevrons {
+    height: 12px; margin: .25rem auto 1.75rem; max-width: 320px;
+    background: var(--line);
+    -webkit-mask: repeating-conic-gradient(from -45deg at 50% 0, #000 0 90deg, transparent 90deg 180deg);
+            mask: repeating-conic-gradient(from -45deg at 50% 0, #000 0 90deg, transparent 90deg 180deg);
+    -webkit-mask-size: 12px 12px; mask-size: 12px 12px;
+  }
+  a { color: var(--teal); }
+  ::selection { background: rgba(224,80,138,.4); }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>Notebook → Python Converter</h1>
-  <p class="sub">Drop <code>.ipynb</code> files below to extract their Python source.</p>
+  <header>
+    <div class="sunburst"></div>
+    <h1>Notebook &#8250; Python</h1>
+    <div class="rule"><span class="diamond"></span></div>
+    <p class="sub">Drop <code>.ipynb</code> files below to extract their Python source.</p>
+  </header>
 
   <label class="drop" id="drop">
     <div class="icon">📓</div>
@@ -120,6 +219,7 @@
     <button class="btn-ghost" id="clearAll" disabled>Clear</button>
   </div>
 
+  <div class="chevrons"></div>
   <div id="results"></div>
 </div>
 
