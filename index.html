@@ -99,7 +99,7 @@
 <body>
 <div class="wrap">
   <h1>Notebook → Python Converter</h1>
-  <p class="sub">Drop <code>.ipynb</code> files below to extract their Python source. Everything runs in your browser — nothing is uploaded.</p>
+  <p class="sub">Drop <code>.ipynb</code> files below to extract their Python source.</p>
 
   <label class="drop" id="drop">
     <div class="icon">📓</div>
@@ -110,7 +110,7 @@
 
   <div class="opts">
     <label><input type="checkbox" id="optMarkdown"> Include markdown as comments</label>
-    <label><input type="checkbox" id="optCellNums" checked> Add cell separators</label>
+    <label><input type="checkbox" id="optCellNums"> Add cell separators</label>
     <label><input type="checkbox" id="optMagics"> Keep IPython magics (<code>%</code>, <code>!</code>)</label>
   </div>
 
@@ -123,7 +123,6 @@
   <div id="results"></div>
 </div>
 
-<footer>Runs entirely client-side · safe to host on GitHub Pages</footer>
 
 <script>
 (function () {
